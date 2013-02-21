@@ -74,74 +74,117 @@ class Bot {
       }
 }
 
-class Node {
-   private:
-      double p;
-      double x;
-      double y;
-      int c;
-      forward_list<Node*> connections;
-   public:
-      Node (double coords[2]) {
-         p = 1;
-         x = coords[0];
-         y = coords[1];
-         c = -1;
-      }
-      double* coords() {
-         //Return the coordinates of this node.
-         double r = {x,y};
-         return (double*) r;
-      }
-      double power() {
-         //Return the power of this node.
-         return p;
-      }
-      int color() {
-         //Return the color of this node.
-         return c;
-      }
-      int color(int n) {
-         //Set the color of this node to n.
-         c = n;
-         return c;
-      }
-      double distanceTo(Node other) {
-         //Return the metric distance to another node.
-         double* other_coords = other.coords();
-         return sqrt(pow(other_coords[0] - x, 2) + pow(other_coords[1] - y, 2))
-      }
-      void disconnect() {
-         //Remove all connections.
-         connections.clear();
-      }
-      void push_connection (Node* other) {
-         //Add a connection.
-         connections.push_front(other);
-      }
-      bool connect(Node other) {
-         if (other.color() != c) {
-            //If the node is not ours, check to make sure we can take it over:
-            if (other.power() < p * pow(TERRAIN_NUMBER, distanceTo(other))) {
-               //If we can, cut all its connections and make it our color.
-               other.disconnect();
-               other.color(c);
-            }
-            else {
-               //Otherwise, the connection fails.
-               return false;
-            }
-         }
-
-         //Connect us two:
-         other.push_connection(this);
-         connections.push_front(&other);
-      
-         
-      }
+struct Node {
+   int id;
+   int color;
+   double coords[2];
+   double power;
+   Node (double x, double y, double i) {
+      coords[0] = x;
+      coords[1] = y;
+      id = i;
+      power = 1;
+      color = -1;
+   }
 }
 
 class Board {
    private:
+      Node* nodes;
+      double** paths;
+      int l;
+   public:
+      Board (int n, int w, int h) {
+         //Set up an array for temporary storage:
+         nodes = new Node[2*n];
+         paths = new double[2*n][2*n];
+
+         //Fill the path lengths with negative ones, signifying "no such path."
+         for (int i = 0; i < 2*n; i += 1) {
+            for (int x = 0; x < 2*n; x += 1) {
+               if (x == 1) paths[i][x] = 0;
+               else paths[i][x] = -1;
+            }
+         }
+
+         //Store the number of nodes:
+         l = 2*n;
+         
+         //"Home" nodes:
+         Node red_home (0, 0);
+         temp[0] = red_home;
+         Node blue_home (w, 0);
+         temp[1] = blue_home;
+
+         //Randomly generated nodes:
+         for (int i = 2; i < n; i += 2) {
+            //Randomly generate the coordinates of the new node:
+            double x = w * rand() / RAND_MAX;
+            double y = h * rand() / RAND_MAX;
+
+            //Each node has a reflected node, to make a fair board:
+            Node k (x, y, i);
+            Node l (w - x, y, i + 1)
+            nodes[i] = k;
+            nodes[i + 1] = l;
+         }
+      }
+
+      double distance(int a, int b) {
+         //Make sure the requested nodes are valid:
+         if (a < 0 || a >= l || b < 0 || b >= l) {
+            cout << "Array index out of bounds." << endl;
+            throw 5;
+         }
+         else {
+            //If they are valid, just find the distance:
+            return sqrt(pow(nodes[a].coords[0] - nodes[b].coords[0], 2) + pow(nodes[a].coords[1] - nodes[b].coords[2], 2));
+         }
+      }
       
+      bool connect(int a, int b) {
+         if (a < 0 || a >= l || b < 0 || b >= l) return false;
+         if (a.color != b.color) {
+            //If a and b are enemies, have a attack b:
+            double terrain_factor = pow(TERRAIN_NUMBER, distance(a,b));
+
+            if (a.power * terrain_factor > b.power) {
+               //If the attack is successful, change b's power and color:
+               b.power = a.power * terrain_factor;
+               b.color = a.color;
+            
+               //Then go to every owned node and increase its power:
+               for (int i = 0; i < l; i += 1) {
+                  if (nodes[i].color == a.color) {
+                     nodes[i].power += pow(TERRAIN_NUMBER, paths[i][a]) * terrain_factor;
+                  }
+               }
+               return true;
+            }
+            else {
+               //Otherwise, return as such:
+               return false;
+            }
+         }
+         else {
+            //If a and b are allied, shorten paths and increase powers:
+            double distance = distance(a,b);
+            for (int i = 0; i < l; i += 1) {
+               if (nodes[i].color == a.color) {
+                  for (int x = 0; x < l; x += 1) {
+                     if (nodes[x].color == a.color && paths[i][x] > paths[i][a] + distance + paths[b][x]) {
+                        
+                        //Unlink the old path:
+                        nodes[i].power -= pow(TERRAIN_NUMBER, paths[i][x]);
+                        nodes[x].power -= pow(TERRAIN_NUMBER, paths[i][x]);
+                        
+                        //Link up the new path:
+
+                        paths[i][x] = paths[i][a] + distance + paths[b][x]; 
+                     }
+                  }
+               }
+            }
+         }
+      }
 }
