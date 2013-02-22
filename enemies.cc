@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 using namespace std;
 
 const double TERRAIN_NUMBER = 0.5;
