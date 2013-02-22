@@ -3,12 +3,25 @@
 #include <sstream>
 using namespace std;
 
-const double TERRAIN_NUMBER = 0.5;
+const double TERRAIN_NUMBER = 0.99;
+
+struct Move {
+   int from;
+   int to;
+   Move () {
+      from = 0;
+      to = 0;
+   }
+   Move (int f, int t) {
+      from = f;
+      to = t;
+   }
+};
 
 class Bot {
    private:
-      int read;
-      int write;
+      int read_pipe;
+      int write_pipe;
       int error;
    public:
       Bot (char* args[]) {
@@ -69,10 +82,21 @@ class Bot {
             close(out_pipe[1]); //STDOUT write end
             close(error_pipe[1]); //STDERR write end
             
-            write = in_pipe[1];
-            read = out_pipe[0];
+            write_pipe = in_pipe[1];
+            read_pipe = out_pipe[0];
             error = error_pipe[0];
          }
+      }
+
+      char* readMove(int l) {
+         char buf[l];
+         char* r;
+         read(read_pipe, buf, l);
+         r = buf;
+         return r;
+      }
+
+      void write() {
       }
 };
 
@@ -169,8 +193,19 @@ class Board {
          if (a.color != b.color) {
             //If a and b are enemies, have a attack b:
             double terrain_factor = pow(TERRAIN_NUMBER, distance(a,b));
+            
+            /*
+            
+            DEBUGGING:
 
-            if (a.power * terrain_factor > b.power) {
+            cout << "Attacker power: " << a.power << endl;
+            cout << "Terrain factor:" << terrain_factor << endl;
+            cout << "Prospective power: " << a.power * terrain_factor + 1 << endl;
+            cout << "Current power: " << b.power << endl;
+            
+            */
+
+            if (a.power * terrain_factor + 1 > b.power) {
                //If the attack is successfuly, remove all enemy paths involving b:
                for (int i = 0; i < l; i += 1) {
                   if (nodes[i].color == b.color) {
@@ -183,9 +218,8 @@ class Board {
                }
                
                //Change b's power and color:
-               b.power = a.power * terrain_factor;
+               b.power = a.power * terrain_factor + 1;
                b.color = a.color;
-
                           
                //Then go to every node owned by (a) and increase its power:
                for (int i = 0; i < l; i += 1) {
@@ -244,6 +278,8 @@ class Board {
 int main() {
    //Currently, just a test of the board:
    Board test (30, 100, 100);
+   cout << test.connect(0,2) << endl;
+   cout << test.connect(2,3) << endl;
    cout << test.fullDescription() << endl;
    return 0;
 }

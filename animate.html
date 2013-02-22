@@ -1,0 +1,20 @@
+<html>
+<head>
+<script>
+window.onload = function() {
+   document.getElementById("files").addEventListener("change",
+      function(evt) {
+         var fr = new FileReader();
+         fr.readAsText(evt.target.files[0]);
+         fr.onload = function() {
+            console.log(fr.result);
+         };
+      },
+   false);
+};
+</script>
+</head>
+<body>
+<input type="file" id="files" multiple/>
+</body>
+</html>
