@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <sstream>
 using namespace std;
 
 const double TERRAIN_NUMBER = 0.5;
@@ -73,10 +74,11 @@ class Bot {
             error = error_pipe[0];
          }
       }
-}
+};
+
+int last_id = 0;
 
 struct Node {
-   static int last_id = 0;
    int id;
    int color;
    double coords[2];
@@ -90,14 +92,14 @@ struct Node {
       
       last_id += 1;
    }
-   Node (double x, double y, double i) {
+   Node (double x, double y, int i) {
       coords[0] = x;
       coords[1] = y;
       id = i;
       power = 1;
       color = -1;
    }
-}
+};
 
 class Board {
    private:
@@ -105,16 +107,16 @@ class Board {
       double** contributions;
       int l;
    public:
-      Board (int n, int w, int h) {
-         //Set up an array for temporary storage:
+      Board (int n, double w, double h) {
          nodes = new Node[2*n];
-         contributions = new double[2*n][2*n];
+         contributions = new double*[2*n];
          
          //Set up the contribution array:
          for (int i = 0; i < 2*n; i += 1) {
+            contributions[i] = new double[2*n];
             for (int x = 0; x < 2*n; x += 1) {
-               if (x == 1) [i][x] = 1;
-               else [i][x] = 0;
+               if (x == 1) contributions[i][x] = 1;
+               else contributions[i][x] = 0;
             }
          }
 
@@ -122,12 +124,12 @@ class Board {
          l = 2*n;
          
          //"Home" nodes:
-         temp[0].color = 1; //Red home
-         temp[1].coords[0] = w;
-         temp[1].color = 2; //Blue home
+         nodes[0].color = 1; //Red home
+         nodes[1].coords[0] = w;
+         nodes[1].color = 2; //Blue home
 
          //Randomly generated nodes:
-         for (int i = 2; i < n; i += 2) {
+         for (int i = 2; i < 2*n; i += 2) {
             //Randomly generate the coordinates of the new node:
             double x = w * rand() / RAND_MAX;
             double y = h * rand() / RAND_MAX;
@@ -150,12 +152,20 @@ class Board {
          }
          else {
             //If they are valid, just find the distance:
-            return sqrt(pow(nodes[a].coords[0] - nodes[b].coords[0], 2) + pow(nodes[a].coords[1] - nodes[b].coords[2], 2));
+            return sqrt(pow(nodes[a].coords[0] - nodes[b].coords[0], 2) + pow(nodes[a].coords[1] - nodes[b].coords[1], 2));
          }
       }
+
+      double distance(const Node& a, const Node& b) {
+         return sqrt(pow(a.coords[0] - b.coords[0], 2) + pow(a.coords[1] - b.coords[1], 2));
+      }
       
-      bool connect(int a, int b) {
-         if (a < 0 || a >= l || b < 0 || b >= l) return false;
+      bool connect(int _a, int _b) {
+         if (_a < 0 || _a >= l || _b < 0 || _b >= l) return false;
+         
+         Node &a = nodes[_a];
+         Node &b = nodes[_b];
+
          if (a.color != b.color) {
             //If a and b are enemies, have a attack b:
             double terrain_factor = pow(TERRAIN_NUMBER, distance(a,b));
@@ -166,7 +176,7 @@ class Board {
                   if (nodes[i].color == b.color) {
                      for (int x = 0; x < l; x += 1) {
                         if (nodes[x].color == b.color) {
-                           contributions[i][x] -= contributions[i][b] * contributions[b][x];
+                           contributions[i][x] -= contributions[i][_b] * contributions[_b][x];
                         }
                      }
                   }
@@ -180,8 +190,8 @@ class Board {
                //Then go to every node owned by (a) and increase its power:
                for (int i = 0; i < l; i += 1) {
                   if (nodes[i].color == a.color) {
-                     nodes[i].power += pow(TERRAIN_NUMBER, contributions[i][a]) * terrain_factor;
-                     contributions[i][x] = contributions[i][a] * terrain_factor;
+                     nodes[i].power += pow(TERRAIN_NUMBER, contributions[i][_a]) * terrain_factor;
+                     contributions[i][_b] = contributions[_b][i] = contributions[i][_a] * terrain_factor;
                   }
                }
                return true;
@@ -200,7 +210,7 @@ class Board {
                   for (int x = 0; x < l; x += 1) {
                      if (nodes[x].color == a.color) {
                         //Recompute contributions:
-                        double new_contribution = contributions[i][a] * difficulty * contributions[b][x];
+                        double new_contribution = contributions[i][_a] * difficulty * contributions[_b][x];
                         contributions[i][x] += new_contribution;
                         nodes[x].power += new_contribution;
                      }
@@ -216,7 +226,7 @@ class Board {
          //A description of the entire board for delivery at game start:
          stringstream s;
          for (int i = 0; i < l; i += 1) {
-            s << nodes[i].coords[0] << ' ' << nodes[i].coords[1] << ' ' << nodes[i].color << ' ' << nodes[i].power << ' '
+            s << nodes[i].coords[0] << ' ' << nodes[i].coords[1] << ' ' << nodes[i].color << ' ' << nodes[i].power << ' ';
          }
          return s.str();
       }
@@ -229,11 +239,11 @@ class Board {
          }
          return s.str();
       }
-}
+};
 
 int main() {
    //Currently, just a test of the board:
-   Board test (30);
+   Board test (30, 100, 100);
    cout << test.fullDescription() << endl;
    return 0;
 }
